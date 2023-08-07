@@ -23,7 +23,7 @@ def get_datasets(num_epochs, batch_size):
     train_ds = train_ds.map(lambda sample: {'image': tf.cast(sample['image'], tf.float32), 'label': sample['label']})
     test_ds = test_ds.map(lambda sample: {'image': tf.cast(sample['image'], tf.float32), 'label': sample['label']})
 
-    train_ds = train_ds.repeat(num_epochs).shuffle(1024).batch(batch_size, drop_reminder=True).prefetch(1)
+    train_ds = train_ds.repeat(num_epochs).shuffle(1024).batch(batch_size, drop_remainder=True).prefetch(1)
     test_ds = test_ds.shuffle(1024).batch(batch_size, drop_remainder=True).prefetch(1)
 
     return train_ds, test_ds
@@ -66,7 +66,7 @@ def create_train_state(module, rng, learning_rate, momentum):
     """Creates an initial `TrainState`."""
     params = module.init(rng, jnp.ones((1, 28, 28, 1)))['params'] # Initializes the params for the model
     tx = optax.sgd(learning_rate, momentum)
-    return TrainState.create(apply_fn=module.apply, params=params, metrics=Metrics.empty())
+    return TrainState.create(apply_fn=module.apply, params=params, tx=tx, metrics=Metrics.empty())
 
 # Training Step
 
@@ -120,24 +120,55 @@ num_steps_per_epoch = train_ds.cardinality().numpy() // num_epochs
 
 metrics_history = {'train_loss': [], 'train_accuracy': [], 'test_loss': [], 'test_accuracy': []}
 
-for step, batch in enumerate(train_ds.as_numpy_iterator()):
-    state = train_step(state, batch)
-    state = compute_metrics(state=state, batch=batch)
+def training_fn(state, train_ds, test_ds, metrics_history, num_steps_per_epoch):
+    for step, batch in enumerate(train_ds.as_numpy_iterator()):
+        state = train_step(state, batch)
+        state = compute_metrics(state=state, batch=batch)
 
-    # When computing over the whole batch, compute metrics for train and testing
-    if(step + 1) % num_steps_per_epoch == 0:
-        for metric, value in state.metrics.compute().item():
-            metrics_history[f'train_{metric}'].append(value)
-        state = state.replace(metrics=state.metrics.empty())
+        # When computing over the whole batch, compute metrics for train and testing
+        if(step + 1) % num_steps_per_epoch == 0:
+            for metric, value in state.metrics.compute().items():
+                metrics_history[f'train_{metric}'].append(value)
+            state = state.replace(metrics=state.metrics.empty())
 
-        test_state = state
-        for test_batch in test_ds.as_numpy_iterator():
-            test_state = compute_metrics(state=test_state, batch=test_batch)
+            test_state = state
+            for test_batch in test_ds.as_numpy_iterator():
+                test_state = compute_metrics(state=test_state, batch=test_batch)
 
-        for metric, value in test_state.metrics.compute().items():
-            metrics_history[f'test_{metric}'].append(value)
+            for metric, value in test_state.metrics.compute().items():
+                metrics_history[f'test_{metric}'].append(value)
 
-        print(f"train epoch: {(step+1) // num_steps_per_epoch}, ", f"loss: {metrics_history['train_loss'][-1] * 100.0}")
-        print(f"test epoch: {(step + 1) // num_steps_per_epoch}, ", f"loss: {metrics_history['test_loss'][-1]}, ", f"accuracy: {metrics_history['test_accuracy'][-1] * 100.0}")
+            print(f"train epoch: {(step+1) // num_steps_per_epoch}, ", f"loss: {metrics_history['train_loss'][-1] * 100.0}")
+            print(f"test epoch: {(step + 1) // num_steps_per_epoch}, ", f"loss: {metrics_history['test_loss'][-1]}, ", f"accuracy: {metrics_history['test_accuracy'][-1] * 100.0}")
 
+    return state, metrics_history
+
+state, metrics_history = training_fn(state, train_ds, test_ds, metrics_history, num_steps_per_epoch)
+
+# 11. Visualize metrics
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+ax1.set_title('Loss')
+ax2.set_title('Accuracy')
+for dataset in ('train', 'test'):
+    ax1.plot(metrics_history[f'{dataset}_loss'], label=f'{dataset}_loss')
+    ax2.plot(metrics_history[f'{dataset}_accuracy'], label=f'{dataset}_accuracy')
+ax1.legend()
+ax2.legend()
+plt.show()
+plt.clf()
+
+@jax.jit
+def pred_step(state, batch):
+    logits = state.apply_fn({'params': state.params}, batch['image'])
+    return logits.argmax(axis=1)
+
+test_batch = test_ds.as_numpy_iterator().next()
+pred = pred_step(state, test_batch)
+
+fig, axs = plt.subplots(5, 5, figsize=(12, 12))
+for i, ax in enumerate(axs.flatten()):
+    ax.imshow(test_batch['image'][i, ..., 0], cmap='gray')
+    ax.set_title(f"label={pred[i]}")
+    ax.axis('off')
 
