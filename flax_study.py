@@ -13,6 +13,8 @@ from clu import metrics
 
 import matplotlib.pyplot as plt
 
+from einops import rearrange, repeat, reduce
+
 
 def get_datasets(num_epochs, batch_size):
     """Load MNIST train and test datasets into memory."""
@@ -171,4 +173,68 @@ for i, ax in enumerate(axs.flatten()):
     ax.imshow(test_batch['image'][i, ..., 0], cmap='gray')
     ax.set_title(f"label={pred[i]}")
     ax.axis('off')
+
+def patch_div(x: jnp.array, num_patches):
+    img_size = x.shape[1]
+    patch_size = img_size // num_patches
+    b, h, w, c = x.shape
+    x = x.reshape((b, patch_size, num_patches, patch_size, num_patches, c))
+    x = x.transpose((0, 1, 3, 2, 4, 5))
+    return x
+
+
+class AttentionBlock(nn.Module):
+    embed_dim: int
+    hidden_dim: int
+    num_heads: int
+    dropout_prob: float = 0.0
+    train: bool = True
+
+    @nn.compact
+    def __call__(self, x):
+        x0 = nn.LayerNorm()(x)
+        x_attn = nn.MultiHeadDotProductAttention(num_heads=self.num_heads)(inputs_q=x0, inputs_kv=x0)
+        x = x + nn.Dropout(self.dropout_prob)(x_attn, determinitic=not self.train)
+
+        x_out = x
+        x = nn.Dense(self.hidden_dim)(x)
+        x = nn.gelu(x)
+        x = nn.Dropout(self.dropout_prob)(x, deterministic=not self.train)
+        x = nn.Dense(self.embed_dim)(x)
+        x = x + nn.Dropout(self.dropout_prob)(x_out, deterministic=not self.train)
+        return x
+    
+class VisionTransformer(nn.Module):
+    embed_dim: int
+    hidden_dim: int
+    num_heads: int
+    num_channels: int = 1
+    num_layers: int
+    num_classes: int
+    patch_size: int
+    num_patches: int
+    dropout_prob: float = 0.0
+    train: bool = True
+
+    @nn.compact
+    def __call__(self, x):
+
+        x = patch_div(x, self.num_patches)
+        b, t = x.shape[:2]
+        x = nn.Dense(self.embed_dim)(x)
+
+        cls_token = self.param('cls_token', nn.initializers.normal(stddev=1.0), shape=(1, 1, self.embed_dim)).repeat(b, axis=0)
+        x = jnp.concatenate((cls_token, x), axis=1)
+        x = x + self.param('pos_embedding', nn.initializers.normal(stddev=1.0), shape=(1, 1+self.num_patches, self.embed_dim))[:, t+1]
+
+        x = nn.Dropout(self.dropout_prob)(x, deterministic=not self.train)
+        for _ in range(self.num_layers):
+            x = AttentionBlock(embed_dim=self.embed_dim, hidden_dim=self.hidden_dim, num_heads=self.num_heads, dropout_prob=self.dropout_prob, train=self.train)(x)
+        
+        cls = x[:,0]
+        out = nn.LayerNorm()(cls)
+        out = nn.Dense(self.num_classes)()
+
+        return out
+
 
