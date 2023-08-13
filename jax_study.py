@@ -67,3 +67,40 @@ print(grad(jit(grad(jit(grad(sum_logistic)))))(1.0))
 def hessian(f):
     return jit(jacfwd(jacrev(f)))
 
+
+# Autovectorization with vmap()
+
+mat = random.normal(key, (150, 100))
+batched_x = random.normal(key, (10, 100))
+
+def apply_matrix(v):
+    return jnp.dot(mat, v)
+
+def naively_batched_apply_matrix(v_batched):
+    return jnp.stack([apply_matrix(v) for v in v_batched])
+
+print('Naively batched')
+t0 = timer()
+naively_batched_apply_matrix(batched_x).block_until_ready()
+t1 = timer()
+print(f'it took {t1-t0} ms.')
+
+@jit
+def batched_apply_matrix(v_batched):
+    return jnp.dot(v_batched, mat.T)
+
+print('Manually batched')
+t0 = timer()
+batched_apply_matrix(batched_x).block_until_ready()
+t1 = timer()
+print(f'it took {t1 - t0} ms.')
+
+@jit
+def vmap_batched_apply_matrix(v_batched):
+    return vmap(apply_matrix)(v_batched)
+
+print('Auto-vectorized with vmap')
+t0 = timer()
+vmap_batched_apply_matrix(batched_x).block_until_ready()
+t1 = timer()
+print(f'it took {t1 - t0} ms.')
