@@ -29,3 +29,20 @@ jnp.dot(x, x.T).block_until_ready()
 tf = timer()
 print(f"it took {tf - ti} ms using numpy backend with offloading to gpu")
 
+# Using jit() to speed up functions
+
+def selu(x, alpha=1.67, lmbda=1.05):
+    return lmbda * jnp.where(x > 0, x, alpha * jnp.exp(x) - alpha)
+
+x = random.normal(key, (1000000,))
+ti = timer()
+selu(x).block_until_ready()
+tf = timer()
+print(f"it took {tf - ti} ms to execute code in jax without jit")
+
+selu_jit = jit(selu)
+ti = timer()
+selu_jit(x).block_until_ready()
+tf = timer()
+print(f"it took {tf - ti} ms to execute code in jax with jit")
+
