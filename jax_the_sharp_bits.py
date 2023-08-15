@@ -64,7 +64,7 @@ iter_operand = iter(range(10))
 
 # In-Place Updates
 
-np_array = np.zeros((3,3), dtyp=np.float32)
+np_array = np.zeros((3,3), dtype=np.float32)
 print("original array")
 print(np_array)
 
@@ -89,3 +89,56 @@ print(jax_array)
 new_jax_array = jax_array.at[::2, 3:].add(7.)
 print("new array post-addition:")
 print(new_jax_array)
+
+
+# Out-of-bounds indexing
+
+# np.arange(10)[11]
+print(jnp.arange(10)[11])
+print(jnp.arange(10.0).at[11].get())
+print(jnp.arange(10.0).at[11].get(mode='fill', fill_value=jnp.nan))
+
+
+# Non-array inputs: NumPy vs JAX
+
+print(np.sum([1, 2, 3]))
+
+# jnp.sum([1, 2, 3])
+
+
+
+# np Random Numbers
+
+
+print(np.random.random())
+print(np.random.random())
+print(np.random.random())
+
+# JAX PRNG
+
+# It uses a modern threefry counter-based PRNG that's splittable
+
+key = jr.PRNGKey(0)
+key
+
+print(jr.normal(key, shape=(1,)))
+print(key)
+print(jr.normal(key, shape=(1,)))
+print(key)
+
+print("old key", key)
+k, sk = jr.split(key)
+normal_pseudorandom = jr.normal(sk, shape=(1,))
+print("SPLIT --> new key", k)
+print("    new subkey", sk, "--> normal", normal_pseudorandom)
+
+print("old key", k)
+k, sk = jr.split(k)
+normal_pseudorandom = jr.normal(sk, shape=(1,))
+print("SPLIT --> new key", k)
+print("    new subkey", sk, "--> normal", normal_pseudorandom)
+
+key, *subkeys = jr.split(k, 4)
+for subkey in subkeys:
+    print(jr.normal(subkey, shape=(1,)))
+
