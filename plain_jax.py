@@ -300,3 +300,4 @@ print(r"            \--> new subkey", subkey, "--> normal", normal_sample)
 
 key = new_key
 
+key, *forty_two_subkeys = jr.split(key, num=43)
