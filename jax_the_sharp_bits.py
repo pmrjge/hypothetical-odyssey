@@ -63,3 +63,29 @@ iter_operand = iter(range(10))
 
 
 # In-Place Updates
+
+np_array = np.zeros((3,3), dtyp=np.float32)
+print("original array")
+print(np_array)
+
+np_array[1, :] = 1.0
+print("updated array:")
+print(np_array)
+
+jax_array = jnp.zeros((3,3), dtype=jnp.float32)
+
+# jax_array[1, :] = 1.0
+
+updated_array = jax_array.at[1, :].set(1.0)
+
+print("updated array:\n", updated_array)
+print("original array unchanged:\n", jax_array)
+
+# Array updates with other operations
+print("original array:")
+jax_array = jnp.ones((5, 6))
+print(jax_array)
+
+new_jax_array = jax_array.at[::2, 3:].add(7.)
+print("new array post-addition:")
+print(new_jax_array)
