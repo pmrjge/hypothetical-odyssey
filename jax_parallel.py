@@ -23,11 +23,11 @@ print(ws)
 
 print(vmap(convolve)(xs,ws))
 
-print(pmap(convolve)(xs, ws))
+# pmap(convolve)(xs, ws)
 
-print(pmap(convolve)(xs, pmap(convolve)(xs, ws)))
+# pmap(convolve)(xs, pmap(convolve)(xs, ws))
 
-print(pmap(convolve, in_axes=(0, None)(xs, w)))
+# pmap(convolve, in_axes=(0, None)(xs, w))
 
 # pmap ==> ~jit
 
@@ -40,9 +40,39 @@ def normalized_convolution(x, w):
     output = jnp.array(output)
     return output / lax.psum(output, axis_name='p')
 
-print(pmap(normalized_convolution, axis_name='p')(xs, ws))
+#print(pmap(normalized_convolution, axis_name='p')(xs, ws))
 
 # Nesting pmap and vmap
 
 # vmap(pmap(f, axis_name='i'), axis_name='j')
+
+# Stateful Computations in JAX
+
+# Counter:
+
+class Counter:
+    def __init__(self):
+        self.n = 0
+
+    def count(self) -> int:
+        self.n += 1
+        return self.n
+    
+    def reset(self):
+        self.n = 0
+
+counter = Counter()
+
+for _ in range(3):
+    print(counter.count())
+
+CounterState = int
+
+class CounterV2:
+    def count(self, n: CounterState) -> tuple[int, CounterState]:
+        return n+1, n+1
+    
+    def reset(self) -> CounterState:
+        return 0
+    
 
