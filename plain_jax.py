@@ -81,3 +81,19 @@ plt.show()
 
 w, b = params
 print(f"w: {w:<.2f}, b: {b:<.2f}")
+
+#Just In Time Compilation with JAX
+# How JAX transforms work
+
+def selu(x, alpha=1.67, lambda_=1.05):
+    return lambda_ * jnp.where(x>0, x, alpha * jnp.exp(x) - alpha)
+
+x = jnp.arange(1000000)
+print(f"Time without JIT: {dtimer(lambda: selu(x).block_until_ready()):<.3f} ms on average")
+
+jselu = jit(selu)
+
+# Compiling code for first time (optimizing python and jax operations)
+jselu(x).block_until_ready()
+
+print(f"Time with JIT: {dtimer(lambda: jselu(x).block_until_ready()):<.3f} ms on average")
