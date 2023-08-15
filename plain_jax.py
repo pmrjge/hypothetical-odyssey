@@ -1,6 +1,8 @@
 import jax
-from jax import numpy as jnp, grad, lax, jit, vmap
+from jax import numpy as jnp, grad, lax, jit, vmap, value_and_grad
 from timeit import timeit
+import matplotlib.pyplot as plt
+import numpy as np
 
 dtimer = lambda test: timeit(lambda: test(), number=100)
 
@@ -35,3 +37,47 @@ partialdx_sum_squared_error = grad(sum_squared_error, argnums=(0, 1))
 print(partialdx_sum_squared_error(x, y))
 
 # Value and Grad
+
+v, g = value_and_grad(sum_squared_error)(x, y)
+print(v, g)
+
+
+# Auxiliary Data
+
+def squared_error_with_aux(x, y):
+    return sum_squared_error(x, y), x - y
+
+val = grad(squared_error_with_aux, has_aux=True)(x, y)
+print(val)
+
+# Differences from NumPy
+
+# My First JAX training loop
+
+xs = np.random.normal(size=(100,))
+noise = np.random.normal(scale=0.1, size=(100,))
+ys = xs * 3 - 1 + noise
+
+#plt.scatter(xs, ys)
+
+def model(params, x):
+    w, b = params
+    return w * x + b
+
+def loss_fn(params, x, y):
+    prediction = model(params, x)
+    return jnp.mean((prediction - y) ** 2)
+
+def update(params, x, y, lr=0.01):
+    return params - lr * grad(loss_fn)(params, x, y)
+
+params = jnp.array([1. ,1.])
+for _ in range(1000):
+    params = update(params, xs, ys)
+
+plt.scatter(xs, ys)
+plt.plot(xs, model(params, xs))
+plt.show()
+
+w, b = params
+print(f"w: {w:<.2f}, b: {b:<.2f}")
