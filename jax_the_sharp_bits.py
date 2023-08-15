@@ -184,3 +184,49 @@ print(lax.fori_loop(start, stop, body_fn, init_val))
 
 # Dynamic Shapes
 
+def nansum(x):
+    mask = ~jnp.isnan(x)
+    x_without_nans = x[mask]
+    return x_without_nans.sum()
+
+x = jnp.array([1,2,jnp.nan, 3, 4])
+print(nansum(x))
+
+# This will error: jax.jit(nansum)(x)
+
+@jax.jit
+def nansum_2(x):
+    mask = ~jnp.isnan(x)
+    return jnp.where(mask, x, 0.).sum()
+
+print(nansum_2(x))
+
+# NaNs
+
+# JAX_DEBUG_NANS=True in our environment variable
+
+# from jax import config
+# config.update("jax_debug_nans", True)
+
+# from jax import config
+# config.parse_flags_with_absl()
+#add option --jax_debug_nans=True
+
+# Double precision (64 bit floats or integers)
+
+# JAX_ENABLE_X64=True at the environment variable
+
+#Manually
+# from jax import config
+# config.update("jax_enable_x64", True)
+
+# from jax import config
+# config.config_with_absl()
+
+# from jax import config
+# if __name__ == '__main__':
+#   config.parse_flags_with_absl():
+
+
+# Caveats
+
