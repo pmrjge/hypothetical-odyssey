@@ -197,3 +197,16 @@ print(f(1, False))
 
 # Static vs Traced Operations
 
+@jit
+def f(x):
+    return x.reshape(jnp.array(x.shape).prod())
+
+x = jnp.ones((2, 3))
+# f(x)
+
+@jit
+def f(x):
+    return x.reshape((np.prod(x.shape),))
+
+# f(x)
+
