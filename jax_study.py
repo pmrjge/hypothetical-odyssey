@@ -1,5 +1,6 @@
 import jax.numpy as jnp
-from jax import grad, jit, vmap, random, device_put, jacfwd, jacrev, lax
+from jax import grad, jit, vmap, random, device_put, jacfwd, jacrev, lax, make_jaxpr
+from functools import partial
 from timeit import default_timer as timer
 import matplotlib.pyplot as plt
 
@@ -152,3 +153,47 @@ t0 = timer()
 norm_compiled(X).block_until_ready()
 t1 = timer()
 print(f"Time using jitted function: {t1 - t0} ms")
+
+
+# JIT mechanics: tracing and static variables
+
+@jit
+def f(x, y):
+    print("Running f():")
+    print(f"  x = {x}")
+    print(f"  y = {y}")
+    result = jnp.dot(x+1, y+1)
+    print(f"  result = {result}")
+    return result
+
+x = np.random.randn(3, 4)
+y = np.random.randn(4)
+print(f(x, y))
+x2 = np.random.randn(3, 4)
+y2 = np.random.randn(4)
+print(f(x2, y2))
+
+def f(x, y):
+    return jnp.dot(x + 1, y + 1)
+
+print(make_jaxpr(f)(x,y))
+
+# JIT compilation fails
+@jit
+def f(x, neg):
+    return -x if neg else x
+
+# f(1, True)
+
+# Declare an argument as static to avoid it being traced
+@partial(jit, static_argnums=(1,))
+def f(x, neg):
+    return -x if neg else x
+
+print(f(1, True))
+
+print(f(1, False))
+
+
+# Static vs Traced Operations
+
