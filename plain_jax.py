@@ -75,9 +75,9 @@ params = jnp.array([1. ,1.])
 for _ in range(1000):
     params = update(params, xs, ys)
 
-plt.scatter(xs, ys)
-plt.plot(xs, model(params, xs))
-plt.show()
+# plt.scatter(xs, ys)
+# plt.plot(xs, model(params, xs))
+# plt.show()
 
 w, b = params
 print(f"w: {w:<.2f}, b: {b:<.2f}")
@@ -97,3 +97,39 @@ jselu = jit(selu)
 jselu(x).block_until_ready()
 
 print(f"Time with JIT: {dtimer(lambda: jselu(x).block_until_ready()):<.3f} ms on average")
+
+#Automatic Vectorization with JAX
+# Manual Vectorization
+
+x = jnp.arange(5)
+w = jnp.array([2., 3., 4.])
+
+def convolve(x, w):
+    output = []
+    for i in range(1, len(x)-1):
+        output.append(jnp.dot(x[i-1:i+2], w))
+    return jnp.array(output)
+
+print(convolve(x, w))
+
+xs = jnp.stack([x, x])
+ws = jnp.stack([w, w])
+
+def manually_batched_convolve(xs, ws):
+    output = []
+    for i in range(xs.shape[0]):
+        output.append(convolve(xs[i], ws[i]))
+    return jnp.stack(output)
+
+print(manually_batched_convolve(xs, ws))
+
+def manually_vectorized_convolve(xs, ws):
+    output = []
+    for i in range(1, xs.shape[-1]-1):
+        output.append(jnp.sum(xs[:, i-1:i+2] * ws, axis=1))
+    return jnp.stack(output, axis=1)
+
+print(manually_vectorized_convolve(xs, ws))
+
+
+
