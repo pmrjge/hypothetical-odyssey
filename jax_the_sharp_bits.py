@@ -142,3 +142,45 @@ key, *subkeys = jr.split(k, 4)
 for subkey in subkeys:
     print(jr.normal(subkey, shape=(1,)))
 
+
+# Structured control flow primitives
+
+# cond
+
+def cond(pred, true_fn, false_fn, operand):
+    return true_fn(operand) if pred else false_fn(operand)
+
+# Jax Equivalent
+operand = jnp.array([0.])
+lax.cond(True, lambda x: x+1, lambda x: x-1, operand)
+lax.cond(False, lambda x: x+1, lambda x: x-1, operand)
+
+# while_loop
+
+def while_loop(cond_fn, body_fn, init_val):
+    val = init_val
+    while cond_fn(val):
+        val = body_fn(val)
+    return val
+
+init_val = 0
+cond_fn = lambda x: x<10
+body_fn = lambda x: x+1
+print(lax.while_loop(cond_fn, body_fn, init_val))
+
+# fori_loop
+def fori_loop(start, stop, body_fn, init_val):
+    val = init_val
+    for i in range(start, stop):
+        val = body_fn(i, val)
+    return val
+
+init_val = 0
+start = 0
+stop = 10
+body_fn = lambda i,x: x + i
+print(lax.fori_loop(start, stop, body_fn, init_val))
+
+
+# Dynamic Shapes
+
