@@ -1,5 +1,5 @@
 import jax
-from jax import numpy as jnp, grad, lax, jit, vmap, value_and_grad
+from jax import numpy as jnp, grad, lax, jit, vmap, value_and_grad, jacfwd, jacrev
 from timeit import timeit
 import matplotlib.pyplot as plt
 import numpy as np
@@ -155,4 +155,91 @@ print(batch_convolve_v3(xs, w))
 jitted_batch_convolve = jit(auto_batch_convolve)
 
 print(jitted_batch_convolve(xs, ws))
+
+# Advanced Automatic Differentiation in JAX
+
+# Higher-Order Derivatives
+
+f = lambda x: x**3 + 2*x**2 - 3*x + 1
+
+dfdx = grad(f)
+d2fdx = grad(dfdx)
+d3fdx = grad(d2fdx)
+d4fdx = grad(d3fdx)
+
+print(dfdx(1.))
+print(d2fdx(1.))
+print(d3fdx(1.))
+print(d4fdx(1.))
+
+def hessian(f):
+    return jacfwd(grad(f))
+
+f = lambda x: jnp.dot(x, x)
+
+print(hessian(f)(jnp.array([1., 2., 3.])))
+
+# Higher Order Optimization
+
+# lr = 0.01
+# def meta_loss_fn(params, data):
+#     grads = grad(loss_fn)(params, data)
+#     return loss_fn(params - lr * grads, data)
+
+# meta_grads = grad(meta_loss_fn)(params, data)
+
+# Stopping gradients
+
+value_fn = lambda theta, state: jnp.dot(theta, state)
+theta = jnp.array([0.1, -0.1, 0.])
+
+s_tm1 = jnp.array([1. ,2., -1.])
+r_t = jnp.array(1.)
+s_t = jnp.array([2., 1., 0.])
+
+def td_loss(theta, s_tm1, r_t, s_t):
+    v_tm1 = value_fn(theta, s_tm1)
+    target = r_t + value_fn(theta, s_t)
+    return (target - v_tm1) ** 2
+
+td_update = grad(td_loss)
+delta_theta = td_update(theta, s_tm1, r_t, s_t)
+
+print(delta_theta)
+#### jax.lax.stop_gradient is key to stop from flowing the gradient
+
+def td_loss(theta, s_tm1, r_t, s_t):
+    v_tm1 = value_fn(theta, s_tm1)
+    target = r_t + value_fn(theta, s_t)
+    return (lax.stop_gradient(target) - v_tm1) ** 2
+
+td_update = grad(td_loss)
+delta_theta = td_update(theta, s_tm1, r_t, s_t)
+
+print(delta_theta)
+
+# Straight-through estimator using stop_gradient
+
+f = jnp.round
+
+def straight_through_f(x):
+    zero = x = lax.stop_gradient(x)
+    return zero + lax.stop_gradient(f(x))
+
+print("f(x)", f(3.2))
+print("straight_through_f(x):", straight_through_f(3.2))
+
+print("grad(f)(x): ", jax.grad(f)(3.2))
+print("grad(straight_through_f)(x):", grad(straight_through_f)(3.2))
+
+
+# Per Example gradients
+
+perex_grads = jit(vmap(grad(td_loss), in_axes=(None, 0, 0, 0)))
+
+batched_s_tm1 = jnp.stack([s_tm1, s_tm1])
+batched_r_t = jnp.stack([r_t, r_t])
+batched_s_t = jnp.stack([s_t, s_t])
+
+print(perex_grads(theta, batched_s_tm1, batched_r_t, batched_s_t))
 
