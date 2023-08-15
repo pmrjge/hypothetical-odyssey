@@ -1,5 +1,5 @@
 import jax
-from jax import numpy as jnp, grad, lax, jit, vmap, value_and_grad, jacfwd, jacrev
+from jax import numpy as jnp, grad, lax, jit, vmap, value_and_grad, jacfwd, jacrev, random as jr
 from timeit import timeit
 import matplotlib.pyplot as plt
 import numpy as np
@@ -138,7 +138,7 @@ auto_batch_convolve = vmap(convolve)
 
 print(auto_batch_convolve(xs, ws))
 
-auto_batch_convolve_v2 = vmap(convolve, in_axes=1, out_axes=2)
+auto_batch_convolve_v2 = vmap(convolve, in_axes=1, out_axes=1)
 
 xst = jnp.transpose(xs)
 wst = jnp.transpose(ws)
@@ -242,4 +242,61 @@ batched_r_t = jnp.stack([r_t, r_t])
 batched_s_t = jnp.stack([s_t, s_t])
 
 print(perex_grads(theta, batched_s_tm1, batched_r_t, batched_s_t))
+
+
+#Random Number in NumPy
+
+
+np.random.seed(0)
+
+def print_truncated_random_state():
+    """To avoid spamming the outputs, print only the part of the state"""
+    full_random_state = np.random.get_state()
+    print(str(full_random_state[:460]), '...')
+
+print_truncated_random_state()
+
+np.random.seed(0)
+
+print_truncated_random_state()
+
+_ = np.random.uniform()
+
+print_truncated_random_state()
+
+np.random.seed(0)
+print(np.random.uniform(size=3))
+
+np.random.seed(0)
+print("individually:", np.stack([np.random.uniform() for _ in range(3)]))
+
+np.random.seed(0)
+print("all at once: ", np.random.uniform(size=3))
+
+
+# Random numbers in JAX
+import numpy as np
+np.random.seed(0)
+def bar(): return np.random.uniform()
+def baz(): return np.random.uniform()
+
+def foo(): return bar () + 2 * baz()
+
+print(foo())
+key =jr.PRNGKey(42)
+
+print(key)
+
+print(jr.normal(key))
+print(jr.normal(key))
+
+print("old key", key)
+
+new_key, subkey = jr.split(key)
+del key
+normal_sample = jr.normal(subkey)
+print(r"    \---SPLIT --> new key   ", new_key)
+print(r"            \--> new subkey", subkey, "--> normal", normal_sample)
+
+key = new_key
 
