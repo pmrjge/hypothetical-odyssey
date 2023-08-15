@@ -132,4 +132,27 @@ def manually_vectorized_convolve(xs, ws):
 print(manually_vectorized_convolve(xs, ws))
 
 
+# Automatic Vectorization
+
+auto_batch_convolve = vmap(convolve)
+
+print(auto_batch_convolve(xs, ws))
+
+auto_batch_convolve_v2 = vmap(convolve, in_axes=1, out_axes=2)
+
+xst = jnp.transpose(xs)
+wst = jnp.transpose(ws)
+
+print(auto_batch_convolve_v2(xst, wst))
+
+
+batch_convolve_v3 = vmap(convolve, in_axes=[0, None])
+
+print(batch_convolve_v3(xs, w))
+
+# Combining transformations
+
+jitted_batch_convolve = jit(auto_batch_convolve)
+
+print(jitted_batch_convolve(xs, ws))
 
